@@ -15,4 +15,4 @@
 
 Содержание:
 Dockerfile — основной файл с оптимизированным Dockerfile.
-
+Dockerfile2 - такойже файл но с multi-stage
