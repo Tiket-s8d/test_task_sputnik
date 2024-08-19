@@ -1,0 +1,63 @@
+# ---------------------------------
+# Это теоретически может тоже уменьшить размер докер образа,
+# однако я незнаю какие из библиотек есть для проекта поэтому вынес это в отдельный файл
+# здесь используется "multi-stage build"
+# Тоесть мы разбиваем контейнер на две части 
+# в первой мы собираем проет, а во второй мы его запускаем
+# ---------------------------------
+
+
+
+# Блок который отвечает за то чтобы собрать проект 
+# тут почути все тоже самое что и в первом Dockerfile кроме момента сборки проект
+FROM node:22.6.0 AS build
+
+RUN apt-get update && apt-get install --no-install-recommends -y \
+autoconf \
+automake \
+bash \
+build-essential \
+gcc \
+git \
+libpng-dev \
+libvips-dev \
+nasm \
+zlib1g-dev \
+&& apt-get clean \
+&& rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=development
+
+WORKDIR /opt/
+
+COPY . .
+
+# Мы переносим процесс сборки проект в эту RUN команду 
+# и теперь результат сборки у нас сохраниться в /opt/
+RUN yarn global add node-gyp \
+&& yarn config set network-timeout 600000 -g \
+&& yarn install \
+&& yarn build
+
+
+# В этом блоке мы уже будем запускать сам проект
+FROM node:22.6.0
+
+RUN apt-get update && apt-get install --no-install-recommends -y \
+bash \
+&& apt-get clean \
+&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/app
+
+# Тут мы используем директорию /opt/app в которой будет запускаться нашь проект
+# но для этого нам нужно скопировать то что собралось с прошлом этапе
+# для этого мы используем COPY в который передадим --from=build тоесть брать из этапа build
+# дальше говорим из какой директории директории build копировать и в какую директори этого этапа
+COPY --from=build /opt /opt/app
+
+RUN chown -R node:node /opt/app
+
+USER node
+
+ENTRYPOINT ["yarn", "develop"]
